@@ -1,12 +1,15 @@
+import org.apache.solr.client.solrj.SolrServer;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import uk.ac.ebi.pride.proteomes.db.core.api.peptide.PeptideRepository;
+import uk.ac.ebi.pride.proteomes.db.core.api.peptide.group.PeptideGroupRepository;
+import uk.ac.ebi.pride.proteomes.db.core.api.peptide.protein.PeptideProteinRepository;
 import uk.ac.ebi.pride.proteomes.index.ProteomesIndexer;
-import uk.ac.ebi.pride.proteomes.index.model.PeptiForm;
 import uk.ac.ebi.pride.proteomes.index.service.ProteomesIndexService;
-import uk.ac.ebi.pride.proteomes.index.service.ProteomesSearchService;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 
 public class Playground {
 
@@ -14,17 +17,32 @@ public class Playground {
 
         ApplicationContext ctx = new ClassPathXmlApplicationContext("spring/app-context.xml");
         ProteomesIndexService indexService = (ProteomesIndexService)ctx.getBean("indexService");
-        ProteomesSearchService searchService = (ProteomesSearchService)ctx.getBean("searchService");
-        PeptideRepository repo = ctx.getBean(PeptideRepository.class);
+        SolrServer solrServer = (SolrServer)ctx.getBean("proteomesSolrServer");
+        PeptideRepository pepRepo = ctx.getBean(PeptideRepository.class);
+        PeptideGroupRepository pepGroupRepo = ctx.getBean(PeptideGroupRepository.class);
+        PeptideProteinRepository pepProtRepo = ctx.getBean(PeptideProteinRepository.class);
 
-        ProteomesIndexer indexer = new ProteomesIndexer(indexService, repo);
+        ProteomesIndexer indexer = new ProteomesIndexer(indexService, pepRepo, pepGroupRepo, pepProtRepo, solrServer);
 
+        Calendar cal = Calendar.getInstance();
+        DateFormat df = new SimpleDateFormat("dd:MM:yy:HH:mm:ss");
+        cal.setTimeInMillis(System.currentTimeMillis());
+        System.out.println("Started indexing process at: " + df.format(cal.getTime()));
 
 //        indexer.deleteAll();
-        indexer.indexProteomes();
 
-//        Page<PeptiForm> result = searchService.findByQueryAndFilterTaxid("RTGGLSSTK", null, new PageRequest(0,10));
-//        System.out.println("results: " + result.getTotalElements());
+        try {
+            long start = System.currentTimeMillis();
+            indexer.indexBySymbolicPeptides(false);
+            long end = System.currentTimeMillis();
+            System.out.println("Indexing time [ms]: " + (end-start));
+        } catch (Exception e) {
+            cal.setTimeInMillis(System.currentTimeMillis());
+            System.out.println("Unexpected exception at: " + df.format(cal.getTime()) + " Exception: " + e.toString());
+            e.printStackTrace();
+        }
+
+
 
         System.out.println("All done.");
     }

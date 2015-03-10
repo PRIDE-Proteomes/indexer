@@ -14,10 +14,10 @@
     <name>proteomes-indexer</name>
 
     <!--
-        To build the project maven profiles are needed:
-            db-pride-proteomes-prideprot-ro-user    (DB user det
-            db-pride-repo-pridepro
-            proteomes-solr-cores
+        To build and run the project maven profiles are needed:
+            db-pride-repo-pridepro                  // for DB connection details
+            db-pride-proteomes-prideprot-ro-user    // for DB access credentials
+            proteomes-solr-cores                    // for the Solr server config
     -->
 
     <licenses>
@@ -44,7 +44,7 @@
 
     <properties>
         <proteomes.index.service.version>0.0.1-SNAPSHOT</proteomes.index.service.version>
-        <!--<pride.index.utils.version>0.1.0</pride.index.utils.version>-->
+        <proteomes.db.core.version>1.0.1-SNAPSHOT</proteomes.db.core.version>
     </properties>
 
     <build>
@@ -137,18 +137,8 @@
         <dependency>
             <groupId>uk.ac.ebi.pride.proteomes.db</groupId>
             <artifactId>pride-proteomes-db-core</artifactId>
-            <version>1.0.0</version>
+            <version>${proteomes.db.core.version}</version>
         </dependency>
-
-        <!-- pride index tools -->
-        <!--<dependency>-->
-            <!--<groupId>uk.ac.ebi.pride</groupId>-->
-            <!--<artifactId>index-utils</artifactId>-->
-            <!--<version>${pride.index.utils.version}</version>-->
-        <!--</dependency>-->
-
-        <!-- jmzTab dependency is retrieved from the index-utils. In this way,
-            psm-index and protein-identification-index are using the same version -->
 
         <!-- ##### 3rd party dependencies ##### ##### ##### ##### ##### -->
 
@@ -165,21 +155,6 @@
             <groupId>commons-dbcp</groupId>
             <artifactId>commons-dbcp</artifactId>
         </dependency>
-
-
-        <!-- Mockito for testing -->
-        <!--<dependency>-->
-            <!--<groupId>org.mockito</groupId>-->
-            <!--<artifactId>mockito-core</artifactId>-->
-        <!--</dependency>-->
-
-        <!-- Guava for partitioning -->
-        <!--<dependency>-->
-            <!--<groupId>com.google.guava</groupId>-->
-            <!--<artifactId>guava</artifactId>-->
-            <!--<version>16.0</version>-->
-        <!--</dependency>-->
-
     </dependencies>
 
     <repositories>
