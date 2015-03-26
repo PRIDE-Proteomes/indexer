@@ -10,7 +10,7 @@
     <groupId>uk.ac.ebi.pride.proteomes</groupId>
     <artifactId>indexer</artifactId>
     <packaging>jar</packaging>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <name>proteomes-indexer</name>
 
     <!--
@@ -43,7 +43,7 @@
     </organization>
 
     <properties>
-        <proteomes.index.service.version>0.0.1-SNAPSHOT</proteomes.index.service.version>
+        <proteomes.index.service.version>0.0.1</proteomes.index.service.version>
         <proteomes.db.core.version>1.0.1-SNAPSHOT</proteomes.db.core.version>
     </properties>
 
