@@ -10,7 +10,7 @@
     <groupId>uk.ac.ebi.pride.proteomes</groupId>
     <artifactId>indexer</artifactId>
     <packaging>jar</packaging>
-    <version>0.0.1</version>
+    <version>0.0.2-SNAPSHOT</version>
     <name>proteomes-indexer</name>
 
     <!--
