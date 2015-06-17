@@ -17,7 +17,7 @@ import uk.ac.ebi.pride.proteomes.db.core.api.peptide.protein.PeptideProteinRepos
 import uk.ac.ebi.pride.proteomes.db.core.api.protein.groups.EntryGroup;
 import uk.ac.ebi.pride.proteomes.db.core.api.protein.groups.GeneGroup;
 import uk.ac.ebi.pride.proteomes.db.core.api.protein.groups.ProteinGroup;
-import uk.ac.ebi.pride.proteomes.index.model.PeptiForm;
+import uk.ac.ebi.pride.proteomes.index.model.SolrPeptiform;
 import uk.ac.ebi.pride.proteomes.index.service.ProteomesIndexService;
 
 import java.io.IOException;
@@ -64,25 +64,24 @@ public class ProteomesIndexer {
 
     /**
      * Notes:
-     *
+     * <p/>
      * - Proteomes Peptides are split in two forms:
-     *     Peptiforms       - the representation of a chemical molecule
-     *                        (sequence, modifications, species)
-     *     SymbolicPeptides - a representation for all Peptiforms with
-     *                        the same sequence and species
-     *
+     * Peptiforms       - the representation of a chemical molecule
+     * (sequence, modifications, species)
+     * SymbolicPeptides - a representation for all Peptiforms with
+     * the same sequence and species
+     * <p/>
      * - only SymbolicPeptides are mapped to Proteins, so we need them to
-     *   establish the peptide-protein mapping
-     *
+     * establish the peptide-protein mapping
+     * <p/>
      * - only Peptiforms contain modification data, so we need those too to
-     *   list modifications
-     *
+     * list modifications
+     * <p/>
      * - we need to separately query for protein groups
-     *
+     * <p/>
      * - we currently have two types of protein groups:
-     *   - UP Entry groups - proteins grouped by UniProt entry (all isoforms)
-     *   - Gene groups     - proteins grouped by their encoding gene
-     *
+     * - UP Entry groups - proteins grouped by UniProt entry (all isoforms)
+     * - Gene groups     - proteins grouped by their encoding gene
      */
     public void indexBySymbolicPeptides(boolean simulation) {
 
@@ -107,14 +106,66 @@ public class ProteomesIndexer {
             List<SymbolicPeptide> peptidePage = peptideRepository.findAllSymbolicPeptides(request);
             logger.debug("\tMain DB query took [ms] : " + (System.currentTimeMillis() - dbStart));
 //            done = (page >= peptidePage.getTotalPages() - 1); // stop criteria when using paged results
-            if (peptidePage.size() < pageSize) { done = true; } // stop criteria when using result lists
+            if (peptidePage != null && !peptidePage.isEmpty()) {
+
+                if (peptidePage.size() < pageSize) {
+                    done = true;
+                } // stop criteria when using result lists
 //            done = (page >= 9); // testing with 10 pages (0-9)
 
 //            List<Peptide> peptideList = peptidePage.getContent();
-            long convStart = System.currentTimeMillis();
-            List<PeptiForm> peptiFormList = convert(peptidePage);
+                long convStart = System.currentTimeMillis();
+                List<SolrPeptiform> peptiFormList = convert(peptidePage);
 
-            logger.debug("\tConversion of " + peptiFormList.size() +" records took [ms] : " + (System.currentTimeMillis() - convStart));
+                logger.debug("\tConversion of " + peptiFormList.size() + " records took [ms] : " + (System.currentTimeMillis() - convStart));
+
+                if (!simulation) {
+
+                    solrServerCheck();
+
+                    long indexStart = System.currentTimeMillis();
+                    indexService.save(peptiFormList);
+                    logger.debug("\tIndex save took [ms] : " + (System.currentTimeMillis() - indexStart));
+                }
+
+                // increase the page number
+                page++;
+            }
+        }
+
+        logger.info("Indexing complete.");
+    }
+
+    /**
+     * This method allows parallelize the indexer using the partitioner of the pipeline
+     *
+     * @param taxId      taxonomy id for the species that we need to index
+     * @param minValue   inferior limit of the range of peptides to index
+     * @param maxValue   superior limit of the range of peptides to index
+     * @param simulation species if the document will be written in the index or not
+     */
+    public void indexBySymbolicPeptidesTaxidAndPeptideIdInterval(Integer taxId, Long minValue, Long maxValue, boolean simulation) {
+
+        logger.info("Start indexing Proteomes data");
+        // make sure we are working on an empty index
+        if (!simulation) {
+            logger.debug("Removing all entries");
+            indexService.deleteAll();
+        }
+
+
+        logger.debug("Starting to retrieve data");
+        logger.debug("Retrieving peptides between [" + minValue + ", " + maxValue + "] for species" + taxId);
+
+        long dbStart = System.currentTimeMillis();
+        List<SymbolicPeptide> peptidePage = peptideRepository.findAllSymbolicPeptidesByTaxidAndPeptideIdBetween(taxId, minValue, maxValue);
+        logger.debug("\tMain DB query took [ms] : " + (System.currentTimeMillis() - dbStart));
+
+        if (peptidePage != null && !peptidePage.isEmpty()) {
+            long convStart = System.currentTimeMillis();
+            List<SolrPeptiform> peptiFormList = convert(peptidePage);
+
+            logger.debug("\tConversion of " + peptiFormList.size() + " records took [ms] : " + (System.currentTimeMillis() - convStart));
 
             if (!simulation) {
 
@@ -124,9 +175,8 @@ public class ProteomesIndexer {
                 indexService.save(peptiFormList);
                 logger.debug("\tIndex save took [ms] : " + (System.currentTimeMillis() - indexStart));
             }
-
-            // increase the page number
-            page++;
+        } else {
+            logger.debug("Nothing to index.");
         }
 
         logger.info("Indexing complete.");
@@ -140,7 +190,7 @@ public class ProteomesIndexer {
                 if (elapsedTime > MAX_PING_TIME) {
                     logger.debug("Solr response too slow: " + elapsedTime + ". Attempt: " + attempts + ". Waiting... ");
                     waitSecs(30);
-                    attempts ++;
+                    attempts++;
                 } else {
                     attempts = 0;
                 }
@@ -155,8 +205,8 @@ public class ProteomesIndexer {
     }
 
 
-    private List<PeptiForm> convert(List<SymbolicPeptide> peptideList) {
-        List<PeptiForm> peptiFormList = new ArrayList<PeptiForm>(peptideList.size());
+    private List<SolrPeptiform> convert(List<SymbolicPeptide> peptideList) {
+        List<SolrPeptiform> peptiFormList = new ArrayList<SolrPeptiform>(peptideList.size());
         for (SymbolicPeptide symbolicPeptide : peptideList) {
             // retrieve the mapped Proteins, which are the same for all Peptiforms from the same SymbolicPeptide
             List<String> mappedProteins = getProteinIdsFromSymbolicPeptide(symbolicPeptide);
@@ -171,12 +221,12 @@ public class ProteomesIndexer {
 
             // for each of the DB Peptiforms create a Solr PeptiForm for indexing
             for (Peptiform peptiform : peptiforms) {
-                PeptiForm peptiForm = convert(peptiform);
+                SolrPeptiform peptiForm = convert(peptiform);
                 // add Protein mappings
                 peptiForm.setProteins(mappedProteins);
                 peptiForm.setNumProteins(mappedProteins.size());
                 // add the groups
-                addGroupsToPeptiForm(peptiForm, symbolicPeptide.getPeptideId());
+                addGroupsToSolrPeptiform(peptiForm, symbolicPeptide.getPeptideId());
 
                 peptiFormList.add(peptiForm);
             }
@@ -185,7 +235,7 @@ public class ProteomesIndexer {
         return peptiFormList;
     }
 
-    private void addGroupsToPeptiForm(PeptiForm peptiForm, long pepID) {
+    private void addGroupsToSolrPeptiform(SolrPeptiform solrPeptiform, long pepID) {
         List<PeptideGroup> peptideGroups = peptideGroupRepository.findByPeptidePeptideId(pepID);
 
         Set<String> upEntryGroups = new HashSet<String>();
@@ -205,22 +255,22 @@ public class ProteomesIndexer {
                 logger.warn("Found unknown ProteinGroup type: " + proteinGroup.getClass());
             }
         }
-        peptiForm.setUpGroups(new ArrayList<String>(upEntryGroups));
-        peptiForm.setNumUpGroups(upEntryGroups.size());
-        peptiForm.setGeneGroups(new ArrayList<String>(geneGroups));
-        peptiForm.setNumGeneGroups(geneGroups.size());
-        peptiForm.setGroupDescs(groupDescriptions.toString());
+        solrPeptiform.setUpGroups(new ArrayList<String>(upEntryGroups));
+        solrPeptiform.setNumUpGroups(upEntryGroups.size());
+        solrPeptiform.setGeneGroups(new ArrayList<String>(geneGroups));
+        solrPeptiform.setNumGeneGroups(geneGroups.size());
+        solrPeptiform.setGroupDescs(groupDescriptions.toString());
     }
 
-    private static PeptiForm convert(Peptiform peptiform) {
-        PeptiForm peptiForm = new PeptiForm();
-        peptiForm.setId(peptiform.getPeptideRepresentation());
-        peptiForm.setSequence(peptiform.getSequence());
-        peptiForm.setTaxid(peptiform.getTaxid());
-        peptiForm.setSpecies(getSpeciesForTaxid(peptiform.getTaxid()));
-//        peptiForm.setMods(new ArrayList<String>(getModNamesFromPeptiform(peptiform))); // session error
-        peptiForm.setMods(new ArrayList<String>(getModsFromPeptiformParsingRepresentation(peptiform.getPeptideRepresentation())));
-        return peptiForm;
+    private static SolrPeptiform convert(Peptiform peptiform) {
+        SolrPeptiform solrPeptiform = new SolrPeptiform();
+        solrPeptiform.setId(peptiform.getPeptideRepresentation());
+        solrPeptiform.setSequence(peptiform.getSequence());
+        solrPeptiform.setTaxid(peptiform.getTaxid());
+        solrPeptiform.setSpecies(getSpeciesForTaxid(peptiform.getTaxid()));
+//        solrPeptiform.setMods(new ArrayList<String>(getModNamesFromPeptiform(peptiform))); // session error
+        solrPeptiform.setMods(new ArrayList<String>(getModsFromPeptiformParsingRepresentation(peptiform.getPeptideRepresentation())));
+        return solrPeptiform;
     }
 
     private static Set<String> getModNamesFromPeptiform(Peptiform peptiform) {
@@ -237,60 +287,89 @@ public class ProteomesIndexer {
     private static String getSpeciesForTaxid(int taxid) {
         // ToDo: map taxid to species names dynamically in separate util
         switch (taxid) {
-            case 9606 : return "Homo sapiens (Human)";
-            case 10090: return "Mus musculus (Mouse)";
-            case 10116: return "Rattus norvegicus (Rat)";
-            case 3702 : return "Arabidopsis thaliana (Mouse-ear cress)";
-            default   : return "unknown";
+            case 9606:
+                return "Homo sapiens (Human)";
+            case 10090:
+                return "Mus musculus (Mouse)";
+            case 10116:
+                return "Rattus norvegicus (Rat)";
+            case 3702:
+                return "Arabidopsis thaliana (Mouse-ear cress)";
+            default:
+                return "unknown";
         }
     }
 
     private static String getPrideModNameForId(int modId) {
         switch (modId) {
-            case  1 : return "Acetylation";
-            case  2 : return "Amidation";
-            case  3 : return "Biotinylation";
-            case  4 : return "Phosphorylation";
-            case  8 : return "Deamidation";
-            case 12 : return "Dehydratation";
-            case 15 : return "Oxidation";
-            case 16 : return "Deamination";
-            case 20 : return "Monomethylation";
-            case 21 : return "Methylthio";
-            case 22 : return "Sulfo";
-            case 23 : return "Lipoyl";
-            case 24 : return "Farnesylation";
-            case 25 : return "Myristoylation";
-            case 26 : return "Pyridoxal_phosphate";
-            case 27 : return "Palmitoylation";
-            case 28 : return "Geranyl_geranyl";
-            case 29 : return "Phosphopantetheine";
-            case 30 : return "Flavin_adenine_dinucleotide";
-            case 32 : return "Formylation";
-            case 39 : return "Carboxylation";
-            case 40 : return "Dioxidation";
-            case  5 :
-            case  6 :
-            case  7 :
-            case  9 :
-            case 10 :
-            case 11 :
-            case 13 :
-            case 14 :
-            case 17 :
-            case 18 :
-            case 19 :
-            case 31 :
-            case 33 :
-            case 34 :
-            case 35 :
-            case 36 :
-            case 37 :
-            case 38 :
-            case 41 :
-            case 42 :
-            case 43 : return "NON_BIO";
-            default : return "unknown";
+            case 1:
+                return "Acetylation";
+            case 2:
+                return "Amidation";
+            case 3:
+                return "Biotinylation";
+            case 4:
+                return "Phosphorylation";
+            case 8:
+                return "Deamidation";
+            case 12:
+                return "Dehydratation";
+            case 15:
+                return "Oxidation";
+            case 16:
+                return "Deamination";
+            case 20:
+                return "Monomethylation";
+            case 21:
+                return "Methylthio";
+            case 22:
+                return "Sulfo";
+            case 23:
+                return "Lipoyl";
+            case 24:
+                return "Farnesylation";
+            case 25:
+                return "Myristoylation";
+            case 26:
+                return "Pyridoxal_phosphate";
+            case 27:
+                return "Palmitoylation";
+            case 28:
+                return "Geranyl_geranyl";
+            case 29:
+                return "Phosphopantetheine";
+            case 30:
+                return "Flavin_adenine_dinucleotide";
+            case 32:
+                return "Formylation";
+            case 39:
+                return "Carboxylation";
+            case 40:
+                return "Dioxidation";
+            case 5:
+            case 6:
+            case 7:
+            case 9:
+            case 10:
+            case 11:
+            case 13:
+            case 14:
+            case 17:
+            case 18:
+            case 19:
+            case 31:
+            case 33:
+            case 34:
+            case 35:
+            case 36:
+            case 37:
+            case 38:
+            case 41:
+            case 42:
+            case 43:
+                return "NON_BIO";
+            default:
+                return "unknown";
         }
     }
 
@@ -300,10 +379,15 @@ public class ProteomesIndexer {
         // causes issues with memory, probably a memory leak or not optimal usage of the lazy loading
 //        Collection<PeptideProtein> proteins = symbolicPeptide.getProteins();
         // we retrieve the protein mappings for the peptide using separate repo calls, to avoid memory issues
+
+        //TODO Review becasue now we don't use LazyLoading
         Collection<PeptideProtein> proteins = pepProtRepo.findByPeptidePeptideId(symbolicPeptide.getPeptideId());
         if (proteins != null) {
             for (PeptideProtein protein : proteins) {
-                proteinAccs.add(protein.getProteinAccession());
+                // We remove from the index the contaminant protein accessions
+                if(!protein.getProtein().isContaminant()) {
+                    proteinAccs.add(protein.getProteinAccession());
+                }
             }
         }
         return proteinAccs;
@@ -314,7 +398,7 @@ public class ProteomesIndexer {
 
         Matcher matcher = Pattern.compile("\\d+,\\d+").matcher(representation);
 
-        while(matcher.find()) {
+        while (matcher.find()) {
             String modLoc = matcher.group();
             String[] locAndMod = modLoc.split(",");
             int modId = Integer.parseInt(locAndMod[1]);

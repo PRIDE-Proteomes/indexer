@@ -38,8 +38,7 @@
         <property name="jpaProperties"> <!-- needed for lazy loading, otherwise the session is not kept even if transactional: http://stackoverflow.com/questions/578433/how-to-solve-lazy-initialization-exception-using-jpa-and-hibernate-as-provider -->
             <props>
                 <!-- However in Hibernate 4.1.8 and 4.1.9 there is a bug related to this feature https://hibernate.atlassian.net/browse/HHH-7971
-                     hence we have to use 4.1.7 !
-                -->
+                     hence we have to use 4.1.7 ! -->
                 <prop key="hibernate.enable_lazy_load_no_trans">true</prop>
             </props>
         </property>
@@ -63,17 +62,10 @@
         <constructor-arg name="solrServer" ref="proteomesSolrServer"/>
     </bean>
 
+    <bean id="proteomesRepository" class="uk.ac.ebi.pride.proteomes.index.repository.ProteomesRepositoryImpl"/>
 
-    <bean id="proteomesRepositoryFactory" class="uk.ac.ebi.pride.proteomes.index.repository.RepositoryFactory">
-        <constructor-arg ref="solrTemplate"/>
-    </bean>
-
-    <bean id="indexService" class="uk.ac.ebi.pride.proteomes.index.service.ProteomesIndexService">
-        <constructor-arg value="#{ proteomesRepositoryFactory.create() }"/>
-    </bean>
-    <bean id="searchService" class="uk.ac.ebi.pride.proteomes.index.service.ProteomesSearchService">
-        <constructor-arg value="#{ proteomesRepositoryFactory.create() }"/>
-    </bean>
+    <bean id="indexService" class="uk.ac.ebi.pride.proteomes.index.service.ProteomesIndexService"/>
+    <bean id="searchService" class="uk.ac.ebi.pride.proteomes.index.service.ProteomesSearchService"/>
 
     <!-- property files -->
     <context:property-placeholder location="classpath:props/*.properties" ignore-unresolvable="true"/>

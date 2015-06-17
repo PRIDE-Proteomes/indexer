@@ -43,8 +43,8 @@
     </organization>
 
     <properties>
-        <proteomes.index.service.version>0.0.1</proteomes.index.service.version>
-        <proteomes.db.core.version>1.0.1-SNAPSHOT</proteomes.db.core.version>
+        <proteomes.index.service.version>0.0.2-SNAPSHOT</proteomes.index.service.version>
+        <proteomes.db.core.version>1.0.2-SNAPSHOT</proteomes.db.core.version>
     </properties>
 
     <build>
@@ -136,7 +136,7 @@
 
         <dependency>
             <groupId>uk.ac.ebi.pride.proteomes.db</groupId>
-            <artifactId>pride-proteomes-db-core</artifactId>
+            <artifactId>db-core</artifactId>
             <version>${proteomes.db.core.version}</version>
         </dependency>
 
