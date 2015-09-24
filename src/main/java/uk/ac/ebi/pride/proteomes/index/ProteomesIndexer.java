@@ -17,6 +17,7 @@ import uk.ac.ebi.pride.proteomes.db.core.api.peptide.protein.PeptideProteinRepos
 import uk.ac.ebi.pride.proteomes.db.core.api.protein.groups.EntryGroup;
 import uk.ac.ebi.pride.proteomes.db.core.api.protein.groups.GeneGroup;
 import uk.ac.ebi.pride.proteomes.db.core.api.protein.groups.ProteinGroup;
+import uk.ac.ebi.pride.proteomes.db.core.api.utils.param.Species;
 import uk.ac.ebi.pride.proteomes.index.model.SolrPeptiform;
 import uk.ac.ebi.pride.proteomes.index.service.ProteomesIndexService;
 
@@ -24,6 +25,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static uk.ac.ebi.pride.proteomes.db.core.api.utils.param.Modification.*;
 
 /**
  * @author florian@ebi.ac.uk
@@ -86,11 +89,6 @@ public class ProteomesIndexer {
     public void indexBySymbolicPeptides(boolean simulation) {
 
         logger.info("Start indexing Proteomes data");
-        // make sure we are working on an empty index
-        if (!simulation) {
-            logger.debug("Removing all entries");
-            indexService.deleteAll();
-        }
 
         int page = 0;
         PageRequest request;
@@ -147,12 +145,6 @@ public class ProteomesIndexer {
     public void indexBySymbolicPeptidesTaxidAndPeptideIdInterval(Integer taxId, Long minValue, Long maxValue, boolean simulation) {
 
         logger.info("Start indexing Proteomes data");
-        // make sure we are working on an empty index
-        if (!simulation) {
-            logger.debug("Removing all entries");
-            indexService.deleteAll();
-        }
-
 
         logger.debug("Starting to retrieve data");
         logger.debug("Retrieving peptides between [" + minValue + ", " + maxValue + "] for species" + taxId);
@@ -226,17 +218,16 @@ public class ProteomesIndexer {
                 peptiForm.setProteins(mappedProteins);
                 peptiForm.setNumProteins(mappedProteins.size());
                 // add the groups
-                addGroupsToSolrPeptiform(peptiForm, symbolicPeptide.getPeptideId());
+                addGroupsToSolrPeptiform(peptiForm, symbolicPeptide.getProteinGroups());
 
                 peptiFormList.add(peptiForm);
             }
-
         }
         return peptiFormList;
     }
 
-    private void addGroupsToSolrPeptiform(SolrPeptiform solrPeptiform, long pepID) {
-        List<PeptideGroup> peptideGroups = peptideGroupRepository.findByPeptidePeptideId(pepID);
+    private void addGroupsToSolrPeptiform(SolrPeptiform solrPeptiform, Set<PeptideGroup> peptideGroups) {
+//        List<PeptideGroup> peptideGroups = peptideGroupRepository.findByPeptidePeptideId(pepID);
 
         Set<String> upEntryGroups = new HashSet<String>();
         Set<String> geneGroups = new HashSet<String>();
@@ -267,9 +258,9 @@ public class ProteomesIndexer {
         solrPeptiform.setId(peptiform.getPeptideRepresentation());
         solrPeptiform.setSequence(peptiform.getSequence());
         solrPeptiform.setTaxid(peptiform.getTaxid());
-        solrPeptiform.setSpecies(getSpeciesForTaxid(peptiform.getTaxid()));
-//        solrPeptiform.setMods(new ArrayList<String>(getModNamesFromPeptiform(peptiform))); // session error
-        solrPeptiform.setMods(new ArrayList<String>(getModsFromPeptiformParsingRepresentation(peptiform.getPeptideRepresentation())));
+        solrPeptiform.setSpecies(Species.getByTaxid(peptiform.getTaxid()).getName());
+        solrPeptiform.setMods(new ArrayList<String>(getModNamesFromPeptiform(peptiform))); // session error
+//        solrPeptiform.setMods(new ArrayList<String>(getModsFromPeptiformParsingRepresentation(peptiform.getPeptideRepresentation())));
         return solrPeptiform;
     }
 
@@ -277,115 +268,26 @@ public class ProteomesIndexer {
         Set<String> modNames = new HashSet<String>();
         if (peptiform != null && peptiform.getModificationLocations() != null) {
             for (ModificationLocation modLoc : peptiform.getModificationLocations()) {
-                int modId = Integer.parseInt(modLoc.getModId());
-                modNames.add(getPrideModNameForId(modId));
+                modNames.add(getModification(modLoc.getModId()).getModName());
             }
         }
         return modNames;
     }
 
-    private static String getSpeciesForTaxid(int taxid) {
-        // ToDo: map taxid to species names dynamically in separate util
-        switch (taxid) {
-            case 9606:
-                return "Homo sapiens (Human)";
-            case 10090:
-                return "Mus musculus (Mouse)";
-            case 10116:
-                return "Rattus norvegicus (Rat)";
-            case 3702:
-                return "Arabidopsis thaliana (Mouse-ear cress)";
-            default:
-                return "unknown";
-        }
-    }
-
-    private static String getPrideModNameForId(int modId) {
-        switch (modId) {
-            case 1:
-                return "Acetylation";
-            case 2:
-                return "Amidation";
-            case 3:
-                return "Biotinylation";
-            case 4:
-                return "Phosphorylation";
-            case 8:
-                return "Deamidation";
-            case 12:
-                return "Dehydratation";
-            case 15:
-                return "Oxidation";
-            case 16:
-                return "Deamination";
-            case 20:
-                return "Monomethylation";
-            case 21:
-                return "Methylthio";
-            case 22:
-                return "Sulfo";
-            case 23:
-                return "Lipoyl";
-            case 24:
-                return "Farnesylation";
-            case 25:
-                return "Myristoylation";
-            case 26:
-                return "Pyridoxal_phosphate";
-            case 27:
-                return "Palmitoylation";
-            case 28:
-                return "Geranyl_geranyl";
-            case 29:
-                return "Phosphopantetheine";
-            case 30:
-                return "Flavin_adenine_dinucleotide";
-            case 32:
-                return "Formylation";
-            case 39:
-                return "Carboxylation";
-            case 40:
-                return "Dioxidation";
-            case 5:
-            case 6:
-            case 7:
-            case 9:
-            case 10:
-            case 11:
-            case 13:
-            case 14:
-            case 17:
-            case 18:
-            case 19:
-            case 31:
-            case 33:
-            case 34:
-            case 35:
-            case 36:
-            case 37:
-            case 38:
-            case 41:
-            case 42:
-            case 43:
-                return "NON_BIO";
-            default:
-                return "unknown";
-        }
-    }
 
     private List<String> getProteinIdsFromSymbolicPeptide(SymbolicPeptide symbolicPeptide) {
         List<String> proteinAccs = new ArrayList<String>();
         // retrieving the proteins directly from the symbolic peptide using the lazy collection
         // causes issues with memory, probably a memory leak or not optimal usage of the lazy loading
-//        Collection<PeptideProtein> proteins = symbolicPeptide.getProteins();
+        Collection<PeptideProtein> proteins = symbolicPeptide.getProteins();
         // we retrieve the protein mappings for the peptide using separate repo calls, to avoid memory issues
 
-        //TODO Review becasue now we don't use LazyLoading
-        Collection<PeptideProtein> proteins = pepProtRepo.findByPeptidePeptideId(symbolicPeptide.getPeptideId());
+        //TODO Review because now we don't use LazyLoading
+//        Collection<PeptideProtein> proteins = pepProtRepo.findByPeptidePeptideId(symbolicPeptide.getPeptideId());
         if (proteins != null) {
             for (PeptideProtein protein : proteins) {
                 // We remove from the index the contaminant protein accessions
-                if(!protein.getProtein().isContaminant()) {
+                if (!protein.getProtein().isContaminant()) {
                     proteinAccs.add(protein.getProteinAccession());
                 }
             }
@@ -401,8 +303,7 @@ public class ProteomesIndexer {
         while (matcher.find()) {
             String modLoc = matcher.group();
             String[] locAndMod = modLoc.split(",");
-            int modId = Integer.parseInt(locAndMod[1]);
-            modNames.add(getPrideModNameForId(modId));
+            modNames.add(getModification(locAndMod[1]).getModName());
 
         }
 
