@@ -10,7 +10,7 @@
     <groupId>uk.ac.ebi.pride.proteomes</groupId>
     <artifactId>indexer</artifactId>
     <packaging>jar</packaging>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>proteomes-indexer</name>
 
     <!--
@@ -195,7 +195,7 @@
         <connection>scm:git:github.com/PRIDE-Proteomes/indexer.git</connection>
         <developerConnection>scm:git:git@github.com:PRIDE-Proteomes/indexer.git</developerConnection>
         <url>https://github.com/PRIDE-Proteomes/indexer.git</url>
-        <tag>HEAD</tag>
+        <tag>indexer-1.0.0</tag>
     </scm>
 
     <distributionManagement>
