@@ -177,9 +177,9 @@
 
     <!--scm git config-->
     <scm>
-        <connection>scm:git:github.com/PRIDE-Proteomes/gwt-widgets.git</connection>
-        <developerConnection>scm:git:git@github.com:PRIDE-Proteomes/gwt-widgets.git</developerConnection>
-        <url>https://github.com/PRIDE-Proteomes/gwt-widgets.git</url>
+        <connection>scm:git:github.com/PRIDE-Proteomes/indexer.git</connection>
+        <developerConnection>scm:git:git@github.com:PRIDE-Proteomes/indexer.git</developerConnection>
+        <url>https://github.com/PRIDE-Proteomes/indexer.git</url>
         <tag>HEAD</tag>
     </scm>
 
