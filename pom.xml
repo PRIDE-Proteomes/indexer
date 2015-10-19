@@ -10,8 +10,8 @@
     <groupId>uk.ac.ebi.pride.proteomes</groupId>
     <artifactId>indexer</artifactId>
     <packaging>jar</packaging>
-    <version>0.0.2-SNAPSHOT</version>
-    <name>proteomes-indexer</name>
+    <version>1.0.1-SNAPSHOT</version>
+    <name>PRIDE Proteomes SOLR Indexer</name>
 
     <!--
         To build and run the project maven profiles are needed:
@@ -91,6 +91,21 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+            </plugin>
+            <!-- release plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <version>2.5.1</version>
+                <configuration>
+                    <remoteTagging>true</remoteTagging>
+                    <goals>deploy</goals>
+                </configuration>
             </plugin>
         </plugins>
     </build>
@@ -177,9 +192,9 @@
 
     <!--scm git config-->
     <scm>
-        <connection>scm:git:github.com/PRIDE-Proteomes/gwt-widgets.git</connection>
-        <developerConnection>scm:git:git@github.com:PRIDE-Proteomes/gwt-widgets.git</developerConnection>
-        <url>https://github.com/PRIDE-Proteomes/gwt-widgets.git</url>
+        <connection>scm:git:github.com/PRIDE-Proteomes/indexer.git</connection>
+        <developerConnection>scm:git:git@github.com:PRIDE-Proteomes/indexer.git</developerConnection>
+        <url>https://github.com/PRIDE-Proteomes/indexer.git</url>
         <tag>HEAD</tag>
     </scm>
 
