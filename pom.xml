@@ -43,8 +43,8 @@
     </organization>
 
     <properties>
-        <proteomes.index.service.version>1.0.0</proteomes.index.service.version>
-        <proteomes.db.core.version>1.0.2</proteomes.db.core.version>
+        <proteomes.index.service.version>1.0.1-SNAPSHOT</proteomes.index.service.version>
+        <proteomes.db.core.version>1.0.3-SNAPSHOT</proteomes.db.core.version>
     </properties>
 
     <build>
@@ -165,6 +165,7 @@
         <dependency>
             <groupId>com.oracle</groupId>
             <artifactId>oracle-thin</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>commons-dbcp</groupId>

@@ -14,7 +14,7 @@ import uk.ac.ebi.pride.proteomes.db.core.api.peptide.group.PeptideGroup;
 import uk.ac.ebi.pride.proteomes.db.core.api.peptide.group.PeptideGroupRepository;
 import uk.ac.ebi.pride.proteomes.db.core.api.peptide.protein.PeptideProtein;
 import uk.ac.ebi.pride.proteomes.db.core.api.peptide.protein.PeptideProteinRepository;
-import uk.ac.ebi.pride.proteomes.db.core.api.protein.groups.EntryGroup;
+import uk.ac.ebi.pride.proteomes.db.core.api.protein.Protein;
 import uk.ac.ebi.pride.proteomes.db.core.api.protein.groups.GeneGroup;
 import uk.ac.ebi.pride.proteomes.db.core.api.protein.groups.ProteinGroup;
 import uk.ac.ebi.pride.proteomes.db.core.api.utils.param.Species;
@@ -22,11 +22,12 @@ import uk.ac.ebi.pride.proteomes.index.model.SolrPeptiform;
 import uk.ac.ebi.pride.proteomes.index.service.ProteomesIndexService;
 
 import java.io.IOException;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
-import static uk.ac.ebi.pride.proteomes.db.core.api.utils.param.Modification.*;
+import static uk.ac.ebi.pride.proteomes.db.core.api.utils.param.Modification.getModification;
 
 /**
  * @author florian@ebi.ac.uk
@@ -35,20 +36,23 @@ public class ProteomesIndexer {
     // ToDo: this is not flexible nor efficient, for production a better way should be found
     //       for example: primary data load (peptiforms) and separate annotations pipelines
 
-    private static Logger logger = LoggerFactory.getLogger(ProteomesIndexer.class.getName());
-
     private static final int pageSize = 1000;
-
     private static final int MAX_PING_TIME = 1000;
     private static final int MAX_ATTEMPTS = 5;
+    private static Logger logger = LoggerFactory.getLogger(ProteomesIndexer.class.getName());
     private int attempts = 0;
 
     private ProteomesIndexService indexService;
     private PeptideRepository peptideRepository;
+
+    @Deprecated
     private PeptideGroupRepository peptideGroupRepository;
+    @Deprecated
     private PeptideProteinRepository pepProtRepo;
+
     private SolrServer solrServer;
 
+    @Deprecated
     public ProteomesIndexer(ProteomesIndexService indexService,
                             PeptideRepository peptideRepository,
                             PeptideGroupRepository peptideGroupRepository,
@@ -59,6 +63,42 @@ public class ProteomesIndexer {
         this.peptideGroupRepository = peptideGroupRepository;
         this.pepProtRepo = peptideProteinRepository;
         this.solrServer = solrServer;
+    }
+
+    public ProteomesIndexer(ProteomesIndexService indexService,
+                            PeptideRepository peptideRepository,
+                            SolrServer solrServer) {
+        this.indexService = indexService;
+        this.peptideRepository = peptideRepository;
+        this.solrServer = solrServer;
+    }
+
+    private static SolrPeptiform convert(Peptiform peptiform) {
+        SolrPeptiform solrPeptiform = new SolrPeptiform();
+        solrPeptiform.setId(peptiform.getPeptideRepresentation());
+        solrPeptiform.setSequence(peptiform.getSequence());
+        solrPeptiform.setTaxid(peptiform.getTaxid());
+        solrPeptiform.setSpecies(Species.getByTaxid(peptiform.getTaxid()).getName());
+        solrPeptiform.setMod(new ArrayList<String>(getModNamesFromPeptiform(peptiform)));
+        return solrPeptiform;
+    }
+
+    private static Set<String> getModNamesFromPeptiform(Peptiform peptiform) {
+        Set<String> modNames = new HashSet<String>();
+        if (peptiform != null && peptiform.getModificationLocations() != null) {
+            for (ModificationLocation modLoc : peptiform.getModificationLocations()) {
+                modNames.add(getModification(modLoc.getModId()).getModName());
+            }
+        }
+        return modNames;
+    }
+
+    private static void waitSecs(int secondsToWait) {
+        try {
+            Thread.sleep(secondsToWait * 1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     public void deleteAll() {
@@ -82,8 +122,7 @@ public class ProteomesIndexer {
      * <p/>
      * - we need to separately query for protein groups
      * <p/>
-     * - we currently have two types of protein groups:
-     * - UP Entry groups - proteins grouped by UniProt entry (all isoforms)
+     * - we currently have one type of protein groups:
      * - Gene groups     - proteins grouped by their encoding gene
      */
     public void indexBySymbolicPeptides(boolean simulation) {
@@ -196,12 +235,9 @@ public class ProteomesIndexer {
         }
     }
 
-
     private List<SolrPeptiform> convert(List<SymbolicPeptide> peptideList) {
         List<SolrPeptiform> peptiFormList = new ArrayList<SolrPeptiform>(peptideList.size());
         for (SymbolicPeptide symbolicPeptide : peptideList) {
-            // retrieve the mapped Proteins, which are the same for all Peptiforms from the same SymbolicPeptide
-            List<String> mappedProteins = getProteinIdsFromSymbolicPeptide(symbolicPeptide);
 
             // find all Peptiforms for the current SymbolicPeptide
             long start = System.currentTimeMillis();
@@ -214,9 +250,7 @@ public class ProteomesIndexer {
             // for each of the DB Peptiforms create a Solr PeptiForm for indexing
             for (Peptiform peptiform : peptiforms) {
                 SolrPeptiform peptiForm = convert(peptiform);
-                // add Protein mappings
-                peptiForm.setProteins(mappedProteins);
-                peptiForm.setNumProteins(mappedProteins.size());
+                addProteinsToSolrPeptiform(peptiForm, symbolicPeptide.getProteins());
                 // add the groups
                 addGroupsToSolrPeptiform(peptiForm, symbolicPeptide.getProteinGroups());
 
@@ -227,95 +261,59 @@ public class ProteomesIndexer {
     }
 
     private void addGroupsToSolrPeptiform(SolrPeptiform solrPeptiform, Set<PeptideGroup> peptideGroups) {
-//        List<PeptideGroup> peptideGroups = peptideGroupRepository.findByPeptidePeptideId(pepID);
 
-        Set<String> upEntryGroups = new HashSet<String>();
         Set<String> geneGroups = new HashSet<String>();
-        StringBuilder groupDescriptions = new StringBuilder();// all keywords, description and additional text to SEARCH on goes here
+        Set<String> geneGroupDescription = new HashSet<String>();
 
         for (PeptideGroup peptideGroup : peptideGroups) {
             ProteinGroup proteinGroup = peptideGroup.getProteinGroup();
-            groupDescriptions.append(proteinGroup.getDescription()); // for searching purposes
-            groupDescriptions.append("\t"); // make sure we are not concatenating two words from two descriptions
-            if (proteinGroup instanceof EntryGroup) {
-                upEntryGroups.add(proteinGroup.getId());
-            } else if (proteinGroup instanceof GeneGroup) {
+            if (proteinGroup instanceof GeneGroup) {
                 geneGroups.add(proteinGroup.getId());
+                geneGroupDescription.add(proteinGroup.getDescription());
+
             } else {
                 // error, we log a warning, but ignore it for now
                 logger.warn("Found unknown ProteinGroup type: " + proteinGroup.getClass());
             }
         }
-        solrPeptiform.setUpGroups(new ArrayList<String>(upEntryGroups));
-        solrPeptiform.setNumUpGroups(upEntryGroups.size());
-        solrPeptiform.setGeneGroups(new ArrayList<String>(geneGroups));
+
+        solrPeptiform.setGeneGroup(new ArrayList<String>(geneGroups));
         solrPeptiform.setNumGeneGroups(geneGroups.size());
-        solrPeptiform.setGroupDescs(groupDescriptions.toString());
+        solrPeptiform.setGeneGroupDescription(new ArrayList<String>(geneGroupDescription));
     }
 
-    private static SolrPeptiform convert(Peptiform peptiform) {
-        SolrPeptiform solrPeptiform = new SolrPeptiform();
-        solrPeptiform.setId(peptiform.getPeptideRepresentation());
-        solrPeptiform.setSequence(peptiform.getSequence());
-        solrPeptiform.setTaxid(peptiform.getTaxid());
-        solrPeptiform.setSpecies(Species.getByTaxid(peptiform.getTaxid()).getName());
-        solrPeptiform.setMods(new ArrayList<String>(getModNamesFromPeptiform(peptiform))); // session error
-//        solrPeptiform.setMods(new ArrayList<String>(getModsFromPeptiformParsingRepresentation(peptiform.getPeptideRepresentation())));
-        return solrPeptiform;
-    }
-
-    private static Set<String> getModNamesFromPeptiform(Peptiform peptiform) {
-        Set<String> modNames = new HashSet<String>();
-        if (peptiform != null && peptiform.getModificationLocations() != null) {
-            for (ModificationLocation modLoc : peptiform.getModificationLocations()) {
-                modNames.add(getModification(modLoc.getModId()).getModName());
-            }
-        }
-        return modNames;
-    }
-
-
-    private List<String> getProteinIdsFromSymbolicPeptide(SymbolicPeptide symbolicPeptide) {
+    private void addProteinsToSolrPeptiform(SolrPeptiform solrPeptiform, Set<PeptideProtein> proteins) {
         List<String> proteinAccs = new ArrayList<String>();
-        // retrieving the proteins directly from the symbolic peptide using the lazy collection
-        // causes issues with memory, probably a memory leak or not optimal usage of the lazy loading
-        Collection<PeptideProtein> proteins = symbolicPeptide.getProteins();
-        // we retrieve the protein mappings for the peptide using separate repo calls, to avoid memory issues
+        List<String> proteinName = new ArrayList<String>();
+        List<String> proteinGeneSymbol = new ArrayList<String>();
+        List<String> proteinEvidence = new ArrayList<String>();
+        List<String> proteinAltName = new ArrayList<String>();
+        List<String> proteinDesc = new ArrayList<String>();
 
-        //TODO Review because now we don't use LazyLoading
-//        Collection<PeptideProtein> proteins = pepProtRepo.findByPeptidePeptideId(symbolicPeptide.getPeptideId());
         if (proteins != null) {
             for (PeptideProtein protein : proteins) {
                 // We remove from the index the contaminant protein accessions
-                if (!protein.getProtein().isContaminant()) {
-                    proteinAccs.add(protein.getProteinAccession());
+                final Protein proteinFromPep = protein.getProtein();
+                if (!proteinFromPep.isContaminant()) {
+                    proteinAccs.add(proteinFromPep.getProteinAccession());
+                    proteinName.add(proteinFromPep.getName());
+                    proteinGeneSymbol.add(proteinFromPep.getGeneSymbol());
+                    proteinEvidence.add(String.valueOf(proteinFromPep.getEvidence()));
+                    proteinAltName.add(proteinFromPep.getAlternativeName());
+                    proteinDesc.add(proteinFromPep.getDescription());
                 }
             }
         }
-        return proteinAccs;
-    }
 
-    private static Set<String> getModsFromPeptiformParsingRepresentation(String representation) {
-        Set<String> modNames = new HashSet<String>();
-
-        Matcher matcher = Pattern.compile("\\d+,\\d+").matcher(representation);
-
-        while (matcher.find()) {
-            String modLoc = matcher.group();
-            String[] locAndMod = modLoc.split(",");
-            modNames.add(getModification(locAndMod[1]).getModName());
-
-        }
-
-        return modNames;
-    }
-
-    private static void waitSecs(int secondsToWait) {
-        try {
-            Thread.sleep(secondsToWait * 1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        // add Protein mappings
+        //We assume that every protein has a name a description or an empty value
+        solrPeptiform.setProteinAccession(proteinAccs);
+        solrPeptiform.setProteinName(proteinName);
+        solrPeptiform.setProteinDescription(proteinDesc);
+        solrPeptiform.setProteinGeneSymbol(proteinGeneSymbol);
+        solrPeptiform.setProteinEvidence(proteinEvidence);
+        solrPeptiform.setProteinAltName(proteinAltName);
+        solrPeptiform.setNumProteins(proteinAccs.size());
     }
 
 }
