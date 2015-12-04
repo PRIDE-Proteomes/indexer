@@ -3,14 +3,14 @@
 
     <parent> <!-- parent POM -->
         <groupId>uk.ac.ebi.pride.proteomes.maven</groupId>
-        <artifactId>parent</artifactId>
-        <version>1.0.1</version>
+        <artifactId>proteomes-maven-parent</artifactId>
+        <version>1.0.0</version>
     </parent>
 
-    <groupId>uk.ac.ebi.pride.proteomes</groupId>
-    <artifactId>indexer</artifactId>
+    <groupId>uk.ac.ebi.pride.proteomes.index</groupId>
+    <artifactId>proteomes-index-indexer</artifactId>
     <packaging>jar</packaging>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
 
     <name>PRIDE Proteomes SOLR Indexer</name>
     <description>This package contains the indexer for the PRIDE Proteomes index.</description>
@@ -51,8 +51,8 @@
     </scm>
 
     <properties>
-        <proteomes.index.service.version>1.0.1-SNAPSHOT</proteomes.index.service.version>
-        <proteomes.db.core.version>1.0.3-SNAPSHOT</proteomes.db.core.version>
+        <proteomes.index.service.version>1.0.0-SNAPSHOT</proteomes.index.service.version>
+        <proteomes.db.core.version>1.0.0</proteomes.db.core.version>
     </properties>
 
     <build>
@@ -111,14 +111,14 @@
     <dependencies>
         <!-- ##### PRIDE dependencies ##### ##### ##### ##### ##### -->
         <dependency>
-            <groupId>uk.ac.ebi.pride.proteomes</groupId>
-            <artifactId>index-service</artifactId>
+            <groupId>uk.ac.ebi.pride.proteomes.index</groupId>
+            <artifactId>proteomes-index-service</artifactId>
             <version>${proteomes.index.service.version}</version>
         </dependency>
 
         <dependency>
             <groupId>uk.ac.ebi.pride.proteomes.db</groupId>
-            <artifactId>db-core</artifactId>
+            <artifactId>proteomes-db-core</artifactId>
             <version>${proteomes.db.core.version}</version>
         </dependency>
 
