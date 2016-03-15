@@ -252,7 +252,7 @@ public class ProteomesIndexer {
                 SolrPeptiform peptiForm = convert(peptiform);
                 addProteinsToSolrPeptiform(peptiForm, symbolicPeptide.getProteins());
                 // add the groups
-                addGroupsToSolrPeptiform(peptiForm, symbolicPeptide.getProteinGroups());
+                addGroupsToSolrPeptiform(peptiForm, symbolicPeptide.getPeptideGroups());
 
                 peptiFormList.add(peptiForm);
             }

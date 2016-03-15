@@ -4,7 +4,7 @@
     <parent> <!-- parent POM -->
         <groupId>uk.ac.ebi.pride.proteomes.maven</groupId>
         <artifactId>proteomes-maven-parent</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1-SNAPSHOT</version>
     </parent>
 
     <groupId>uk.ac.ebi.pride.proteomes.index</groupId>
@@ -52,7 +52,7 @@
 
     <properties>
         <proteomes.index.service.version>1.0.0-SNAPSHOT</proteomes.index.service.version>
-        <proteomes.db.core.version>1.0.0</proteomes.db.core.version>
+        <proteomes.db.core.version>1.0.1-SNAPSHOT</proteomes.db.core.version>
     </properties>
 
     <build>
