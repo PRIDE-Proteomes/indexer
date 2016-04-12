@@ -1,6 +1,6 @@
 package uk.ac.ebi.pride.proteomes.index;
 
-import org.apache.solr.client.solrj.SolrServer;
+import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.slf4j.Logger;
@@ -50,27 +50,27 @@ public class ProteomesIndexer {
     @Deprecated
     private PeptideProteinRepository pepProtRepo;
 
-    private SolrServer solrServer;
+    private SolrClient solrClient;
 
     @Deprecated
     public ProteomesIndexer(ProteomesIndexService indexService,
                             PeptideRepository peptideRepository,
                             PeptideGroupRepository peptideGroupRepository,
                             PeptideProteinRepository peptideProteinRepository,
-                            SolrServer solrServer) {
+                            SolrClient solrClient) {
         this.indexService = indexService;
         this.peptideRepository = peptideRepository;
         this.peptideGroupRepository = peptideGroupRepository;
         this.pepProtRepo = peptideProteinRepository;
-        this.solrServer = solrServer;
+        this.solrClient = solrClient;
     }
 
     public ProteomesIndexer(ProteomesIndexService indexService,
                             PeptideRepository peptideRepository,
-                            SolrServer solrServer) {
+                            SolrClient solrClient) {
         this.indexService = indexService;
         this.peptideRepository = peptideRepository;
-        this.solrServer = solrServer;
+        this.solrClient = solrClient;
     }
 
     private static SolrPeptiform convert(Peptiform peptiform) {
@@ -216,7 +216,7 @@ public class ProteomesIndexer {
     private void solrServerCheck() {
         if (attempts < MAX_ATTEMPTS) {
             try {
-                SolrPingResponse response = solrServer.ping();
+                SolrPingResponse response = solrClient.ping();
                 long elapsedTime = response.getElapsedTime();
                 if (elapsedTime > MAX_PING_TIME) {
                     logger.debug("Solr response too slow: " + elapsedTime + ". Attempt: " + attempts + ". Waiting... ");
