@@ -121,22 +121,6 @@
             <artifactId>proteomes-db-core</artifactId>
             <version>${proteomes.db.core.version}</version>
         </dependency>
-
-        <!-- ##### 3rd party dependencies ##### ##### ##### ##### ##### -->
-        <!--These dependencies are neede to configure the db in the play ground.
-        If in the future we use only the pipeline for indexing the playground could be remove toguether with these dependencies -->
-
-        <!-- Oracle DB -->
-        <dependency>
-            <groupId>com.oracle</groupId>
-            <artifactId>oracle-thin</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>commons-dbcp</groupId>
-            <artifactId>commons-dbcp</artifactId>
-        </dependency>
     </dependencies>
 
 </project>
